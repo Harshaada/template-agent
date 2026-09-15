@@ -6,30 +6,30 @@ on:
   pull_request:
     branches: [ main ]
 
-# Least privilege for this workflow (no PR comments from gitleaks-action)
 permissions:
   contents: read
 
 env:
   PYTHON_VERSION: "3.12"
   GITLEAKS_VERSION: "8.28.0"
+  # sha256 from https://github.com/gitleaks/gitleaks/releases/download/v8.28.0/gitleaks_8.28.0_checksums.txt
+  GITLEAKS_SHA256: "a65b5253807a68ac0cafa4414031fd740aeb55f54fb7e55f386acb52e6a840eb"
 
 jobs:
+  # PR-controlled install/hooks: keep checkout shallow so full git history
+  # (including deleted secrets) is not exposed to untrusted PR code.
   pre-commit:
     name: Pre Commit
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       with:
-        # Full history so gitleaks can scan all commits in CI
-        fetch-depth: 0
-        # Do not persist GITHUB_TOKEN in local git config for later steps
         persist-credentials: false
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v3
+      uses: astral-sh/setup-uv@a7e15805d229f8677c5ddf08590a8cb972658599 # v3.2.1
       with:
         version: "latest"
 
@@ -44,13 +44,26 @@ jobs:
       run: |
         source .venv/bin/activate && pre-commit run --all-files
 
-    # The gitleaks pre-commit hook runs `gitleaks git --pre-commit --staged`,
-    # which only scans staged changes. A clean CI checkout has nothing staged.
-    # Use the open-source CLI (no GITLEAKS_LICENSE) and scan full git history.
+  # Isolated full-history secret scan: no PR package install or hooks.
+  # The gitleaks pre-commit hook only scans --staged (empty in CI).
+  gitleaks:
+    name: Gitleaks
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+
     - name: Install Gitleaks
       run: |
-        curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
-          | tar -xz gitleaks
+        set -euo pipefail
+        ARCHIVE="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+        curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${ARCHIVE}" -o "${ARCHIVE}"
+        echo "${GITLEAKS_SHA256}  ${ARCHIVE}" | sha256sum -c -
+        tar -xzf "${ARCHIVE}" gitleaks
         sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
         gitleaks version
 
