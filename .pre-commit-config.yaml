@@ -24,6 +24,7 @@ repos:
         exclude: ^config/agent/mcp\.json$
       - id: check-toml
       - id: detect-private-key
+        exclude: ^tests/
 
   # Secret detection (same approach as usernaut / template-ui)
   - repo: https://github.com/gitleaks/gitleaks

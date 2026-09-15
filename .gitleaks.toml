@@ -1,0 +1,10 @@
+title = "template-agent gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Test fixtures with mock credentials (not real secrets)"
+paths = [
+  '''^tests/''',
+]
