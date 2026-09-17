@@ -67,4 +67,4 @@ jobs:
         gitleaks version
 
     - name: Gitleaks full history scan
-      run: gitleaks git --log-opts="--all" --redact --verbose
+      run: gitleaks git --config .gitleaks.toml --log-opts="--all" --redact --verbose
